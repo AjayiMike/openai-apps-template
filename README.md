@@ -1,4 +1,4 @@
-## OpenAI Apps Todo Template
+## OpenAI Apps Template (Todo App)
 
 Build, preview, and ship a ChatGPT App that renders a responsive React widget and talks to a Model Context Protocol (MCP) server—all from one repository.
 
