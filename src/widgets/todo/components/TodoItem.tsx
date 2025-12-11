@@ -2,15 +2,16 @@ import React, { useState } from "react";
 import recycleBin from "../../../assets/recycle-bin.png";
 import TextInput from "../../../components/TextInput";
 
+type TodoList = {
+    title: string;
+    todos: { id: string; title: string; isComplete: boolean }[];
+};
+
 interface TodoItemProps {
-    list: {
-        id: string;
-        title: string;
-        todos: { id: string; title: string; isComplete: boolean }[];
-    };
-    addItem: (listId: string, title: string) => Promise<void> | void;
-    toggleItem: (listId: string, itemId: string) => void;
-    deleteItem: (listId: string, itemId: string) => void;
+    list: TodoList;
+    addItem: (title: string) => Promise<void> | void;
+    toggleItem: (itemId: string) => void;
+    deleteItem: (itemId: string) => void;
 }
 
 const TodoItem: React.FC<TodoItemProps> = ({
@@ -24,7 +25,7 @@ const TodoItem: React.FC<TodoItemProps> = ({
     const handleAdd = async () => {
         const title = newTitle.trim();
         if (!title) return;
-        await addItem(list.id, title);
+        await addItem(title);
         setNewTitle("");
     };
 
@@ -42,10 +43,7 @@ const TodoItem: React.FC<TodoItemProps> = ({
     };
 
     return (
-        <div
-            key={list.id}
-            className="bg-white border border-black/10 rounded-xl shadow-[0_6px_16px_rgba(0,0,0,0.06)] p-3 max-w-[480px] mx-auto"
-        >
+        <div className="bg-white border border-black/10 rounded-xl shadow-[0_6px_16px_rgba(0,0,0,0.06)] p-3 max-w-[480px] mx-auto">
             <div className="flex items-center gap-2 py-2">
                 <div className="font-semibold text-base flex-1">
                     {list.title || "Untitled"}
@@ -81,16 +79,16 @@ const TodoItem: React.FC<TodoItemProps> = ({
                             type="checkbox"
                             readOnly
                             checked={!!item.isComplete}
-                            onChange={() => toggleItem(list.id, item.id)}
+                            onChange={() => toggleItem(item.id)}
                         />
                         <span
                             role="button"
                             tabIndex={0}
-                            onClick={() => toggleItem(list.id, item.id)}
+                            onClick={() => toggleItem(item.id)}
                             onKeyDown={(e) => {
                                 if (e.key === "Enter" || e.key === " ") {
                                     e.preventDefault();
-                                    toggleItem(list.id, item.id);
+                                    toggleItem(item.id);
                                 }
                             }}
                             className={`flex-1 cursor-pointer ${
@@ -104,7 +102,7 @@ const TodoItem: React.FC<TodoItemProps> = ({
                         <button
                             type="button"
                             className="text-xs text-red-500 hover:text-red-600 cursor-pointer"
-                            onClick={() => deleteItem(list.id, item.id)}
+                            onClick={() => deleteItem(item.id)}
                         >
                             <img
                                 src={recycleBin}

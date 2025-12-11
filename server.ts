@@ -22,10 +22,10 @@ function readHtml(): string {
 }
 
 const TOOLS = {
-    LIST: "todo-list",
-    ADD: "add_todo",
-    TOGGLE: "toggle_todo",
-    DELETE: "delete_todo",
+    LIST: "todo_list",
+    ADD: "add_todo_item",
+    TOGGLE: "toggle_todo_item",
+    DELETE: "delete_todo_item",
 };
 
 const widget = {
@@ -60,15 +60,12 @@ type TodoItem = {
 };
 
 type TodoList = {
-    id: string;
     title: string;
-    isCurrentlyOpen: boolean;
     todos: TodoItem[];
 };
 
 type ToolArguments = {
     title?: string;
-    listId?: string;
     todoId?: string;
 };
 
@@ -79,19 +76,11 @@ function cloneList(list: TodoList): TodoList {
     };
 }
 
-function createInitialLists(): TodoList[] {
-    return [
-        {
-            id: "list-root",
-            title: "My List",
-            isCurrentlyOpen: true,
-            todos: [],
-        },
-    ];
-}
-
-function cloneLists(lists: TodoList[]): TodoList[] {
-    return lists.map((list) => cloneList(list));
+function createInitialList(): TodoList {
+    return {
+        title: "My List",
+        todos: [],
+    };
 }
 
 function generateId(prefix: "list" | "todo"): string {
@@ -105,33 +94,24 @@ function getNormalizedTitle(title?: string): string {
     return "New item";
 }
 
-const globalTodoState: { todoLists: TodoList[] } = {
-    todoLists: createInitialLists(),
+const globalTodoState: { todoList: TodoList } = {
+    todoList: createInitialList(),
 };
 
-function ensureList(todoLists: TodoList[], listId?: string): TodoList {
-    if (listId) {
-        const hit = todoLists.find((list) => list.id === listId);
-        if (hit) return hit;
+function ensureList(todoList: TodoList | null | undefined): TodoList {
+    if (todoList) {
+        return todoList;
     }
-    if (todoLists.length === 0) {
-        const newList: TodoList = {
-            id: generateId("list"),
-            title: "My List",
-            isCurrentlyOpen: true,
-            todos: [],
-        };
-        todoLists.push(newList);
-        return newList;
-    }
-    return todoLists[0];
+    const fresh = createInitialList();
+    globalTodoState.todoList = fresh;
+    return fresh;
 }
 
-function toolResponse(todoLists: TodoList[]) {
+function toolResponse(todoList: TodoList) {
     return {
         content: [{ type: "text", text: widget.responseText }],
         structuredContent: {
-            todoLists: cloneLists(todoLists),
+            todoList: cloneList(todoList),
         },
         _meta: metaInvocation(),
     };
@@ -142,13 +122,11 @@ function createMcpServer(): Server {
         { name: "todo", version: "0.1.0" },
         { capabilities: { resources: {}, tools: {} } }
     );
-    const todoLists: TodoList[] = globalTodoState.todoLists;
-
     const toolDescriptors = [
         {
             name: TOOLS.LIST,
             title: "Show Todo List",
-            description: "Return the current todo lists",
+            description: "Return the current todo list",
             inputSchema: {
                 type: "object",
                 properties: {},
@@ -158,15 +136,10 @@ function createMcpServer(): Server {
         {
             name: TOOLS.ADD,
             title: "Add Todo",
-            description: "Add a todo item to a list",
+            description: "Add a todo item to the list",
             inputSchema: {
                 type: "object",
                 properties: {
-                    listId: {
-                        type: "string",
-                        description:
-                            "Target list identifier. Defaults to the primary list.",
-                    },
                     title: {
                         type: "string",
                         description: "Title for the todo item.",
@@ -183,16 +156,12 @@ function createMcpServer(): Server {
             inputSchema: {
                 type: "object",
                 properties: {
-                    listId: {
-                        type: "string",
-                        description: "Identifier of the target list.",
-                    },
                     todoId: {
                         type: "string",
                         description: "Identifier of the todo item to toggle.",
                     },
                 },
-                required: ["listId", "todoId"],
+                required: ["todoId"],
                 additionalProperties: false,
             },
         },
@@ -203,16 +172,12 @@ function createMcpServer(): Server {
             inputSchema: {
                 type: "object",
                 properties: {
-                    listId: {
-                        type: "string",
-                        description: "Identifier of the target list.",
-                    },
                     todoId: {
                         type: "string",
                         description: "Identifier of the todo item to delete.",
                     },
                 },
-                required: ["listId", "todoId"],
+                required: ["todoId"],
                 additionalProperties: false,
             },
         },
@@ -238,37 +203,42 @@ function createMcpServer(): Server {
         const args: ToolArguments = req.params.arguments ?? {};
 
         if (toolName === TOOLS.LIST) {
-            return toolResponse(todoLists);
+            const currentList = ensureList(globalTodoState.todoList);
+            globalTodoState.todoList = currentList;
+            return toolResponse(currentList);
         }
 
         if (toolName === TOOLS.ADD) {
-            const targetList = ensureList(todoLists, args.listId);
+            const targetList = ensureList(globalTodoState.todoList);
+            globalTodoState.todoList = targetList;
             const title = getNormalizedTitle(args.title);
             targetList.todos = [
                 { id: generateId("todo"), title, isComplete: false },
                 ...targetList.todos,
             ];
-            return toolResponse(todoLists);
+            return toolResponse(targetList);
         }
 
         if (toolName === TOOLS.TOGGLE) {
-            const targetList = ensureList(todoLists, args.listId);
+            const targetList = ensureList(globalTodoState.todoList);
+            globalTodoState.todoList = targetList;
             if (!args.todoId) throw new Error("Missing todoId for toggle");
             const todo = targetList.todos.find(
                 (item) => item.id === args.todoId
             );
             if (!todo) throw new Error("Todo not found for toggle action");
             todo.isComplete = !todo.isComplete;
-            return toolResponse(todoLists);
+            return toolResponse(targetList);
         }
 
         if (toolName === TOOLS.DELETE) {
-            const targetList = ensureList(todoLists, args.listId);
+            const targetList = ensureList(globalTodoState.todoList);
+            globalTodoState.todoList = targetList;
             if (!args.todoId) throw new Error("Missing todoId for delete");
             targetList.todos = targetList.todos.filter(
                 (item) => item.id !== args.todoId
             );
-            return toolResponse(todoLists);
+            return toolResponse(targetList);
         }
 
         throw new Error(`Unknown tool: ${toolName}`);

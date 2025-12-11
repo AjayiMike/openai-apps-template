@@ -75,7 +75,7 @@ npm install
 -   Widgets live under `src/widgets/<name>.tsx`. Each file should call `createRoot` and mount itself into `__WIDGET_ROOT_ID__`.
 -   `npm run dev` spins up Vite with HMR. Navigate to `http://localhost:5173?entry=<name>` to load that widget.
 -   Hooks under `src/hooks` provide typed access to `window.openai` globals:
-    -   `useWidgetProps` pulls structured tool output (`toolOutput.todoLists` in this case).
+    -   `useWidgetProps` pulls structured tool output (`toolOutput.todoList` in this case).
     -   `useWidgetState` keeps local widget state in sync with the ChatGPT host via `window.openai.setWidgetState`.
     -   `useCallTool`, `useRequestDisplayMode`, etc. wrap MCP APIs.
 
@@ -96,12 +96,12 @@ npm install
 -   Tools shipped by default:
     | Name | Description | Arguments |
     | --- | --- | --- |
-    | `todo-list` | Return current todo lists | none |
-    | `add_todo` | Insert a new todo | `{ listId?, title }` |
-    | `toggle_todo` | Flip completion state | `{ listId, todoId }` |
-    | `delete_todo` | Remove a todo | `{ listId, todoId }` |
+    | `todo-list` | Return the current todo list | none |
+    | `add_todo` | Insert a new todo | `{ title }` |
+    | `toggle_todo` | Flip completion state | `{ todoId }` |
+    | `delete_todo` | Remove a todo | `{ todoId }` |
 -   All tool responses include:
-    -   `structuredContent.todoLists` (mirrors the widget data contract)
+    -   `structuredContent.todoList` (mirrors the widget data contract)
     -   `_meta.openai/*` descriptors so ChatGPT knows to render the widget
 -   The server keeps a simple in-memory `globalTodoState`. Swap this out for a real database or API when you graduate from the demo.
 
@@ -161,7 +161,7 @@ Environment variables:
 ## Extending the Template
 
 -   **Add another widget**: drop `src/widgets/notes.tsx`, ensure it mounts to `__WIDGET_ROOT_ID__`, run `npm run build`, then expose it as a new resource/tool in `server.ts`.
--   **Persist todo data**: replace `globalTodoState` with a database call or REST client. The only contract the widget needs is `{ todoLists: TodoList[] }`.
+-   **Persist todo data**: replace `globalTodoState` with a database call or REST client. The only contract the widget needs is `{ todoList: TodoList }`, where `TodoList` is just `{ title: string; todos: TodoItem[] }`.
 -   **Enhance UI state**: use `useWidgetState` for optimistic updates; it already mirrors state back to ChatGPT so the host stays in sync between agent turns.
 -   **Add more tools**: register descriptors in `server.ts` (`ListToolsRequestSchema` handler) and implement the behavior inside the `CallToolRequest` handler.
 
@@ -169,7 +169,7 @@ Environment variables:
 
 ## Troubleshooting
 
--   **Widget shows stale data** – ensure the MCP response includes fresh `structuredContent.todoLists` and `_meta.openai/outputTemplate`. The widget only resyncs when the host sends new structured data.
+-   **Widget shows stale data** – ensure the MCP response includes fresh `structuredContent.todoList` and `_meta.openai/outputTemplate`. The widget only resyncs when the host sends new structured data.
 -   **“Build not found” error** – run `npm run build` before starting `npm start` so `dist/todo.html` exists.
 -   **No widget in ChatGPT** – verify the connector is allowed to render widgets (`openai/widgetAccessible: true`) and that the `ui://widget/<name>.html` resource is listed via `ListResources`.
 -   **CORS or tunnel issues** – the server enables `Access-Control-Allow-Origin: *`, but your tunnel must forward both `GET /mcp` and `POST /mcp/messages`.

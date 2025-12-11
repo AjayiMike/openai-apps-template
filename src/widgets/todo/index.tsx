@@ -17,112 +17,91 @@ type TodoEntry = {
     isComplete: boolean;
 };
 type TodoList = {
-    id: string;
     title: string;
-    isCurrentlyOpen?: boolean;
     todos: TodoEntry[];
 };
 
-function readStructuredLists(structured: unknown): TodoList[] | null {
+function cloneList(list: TodoList): TodoList {
+    return {
+        ...list,
+        todos: list.todos.map((todo) => ({ ...todo })),
+    };
+}
+
+function readStructuredList(structured: unknown): TodoList | null {
     if (
         structured &&
         typeof structured === "object" &&
-        Array.isArray((structured as any).todoLists)
+        structured !== null &&
+        typeof (structured as any).todoList === "object"
     ) {
-        return (structured as any).todoLists as TodoList[];
+        return (structured as any).todoList as TodoList;
     }
     return null;
 }
 
-function isNonEmptyListArray(
-    value: TodoList[] | null | undefined
-): value is TodoList[] {
-    return Array.isArray(value) && value.length > 0;
+function isValidList(value: TodoList | null | undefined): value is TodoList {
+    return !!value && Array.isArray(value.todos);
 }
 
-function areListsEqual(a: TodoList[] | null, b: TodoList[] | null): boolean {
+function areListsEqual(a: TodoList | null, b: TodoList | null): boolean {
     if (a === b) return true;
     if (!a || !b) return false;
-    if (a.length !== b.length) return false;
-    for (let i = 0; i < a.length; i += 1) {
-        const listA = a[i];
-        const listB = b[i];
+    if (a.title !== b.title || a.todos.length !== b.todos.length) {
+        return false;
+    }
+    for (let i = 0; i < a.todos.length; i += 1) {
+        const todoA = a.todos[i];
+        const todoB = b.todos[i];
         if (
-            listA.id !== listB.id ||
-            listA.title !== listB.title ||
-            !!listA.isCurrentlyOpen !== !!listB.isCurrentlyOpen ||
-            listA.todos.length !== listB.todos.length
+            todoA.id !== todoB.id ||
+            todoA.title !== todoB.title ||
+            !!todoA.isComplete !== !!todoB.isComplete
         ) {
             return false;
-        }
-        for (let j = 0; j < listA.todos.length; j += 1) {
-            const todoA = listA.todos[j];
-            const todoB = listB.todos[j];
-            if (
-                todoA.id !== todoB.id ||
-                todoA.title !== todoB.title ||
-                !!todoA.isComplete !== !!todoB.isComplete
-            ) {
-                return false;
-            }
         }
     }
     return true;
 }
 
-function readPreviewData() {
+function readPreviewData(): TodoList | null {
     if (
         typeof window !== "undefined" &&
         window.todoData &&
-        Array.isArray(window.todoData.todoLists)
+        typeof window.todoData.todoList === "object"
     ) {
-        return window.todoData.todoLists as Array<any>;
+        return window.todoData.todoList as TodoList;
     }
-    return [] as Array<any>;
+    return null;
 }
 
 function Todo() {
-    const previewLists = useMemo(() => readPreviewData(), []);
-    const fallbackLists = useMemo(
+    const previewList = useMemo(() => readPreviewData(), []);
+    const fallbackList = useMemo(
         () =>
-            previewLists.length > 0
-                ? previewLists
-                : [
-                      {
-                          id: "list-local",
-                          title: "My List",
-                          isCurrentlyOpen: true,
-                          todos: [],
-                      },
-                      {
-                          id: "list-local-2",
-                          title: "My List 2",
-                          isCurrentlyOpen: true,
-                          todos: [],
-                      },
-                  ],
-        [previewLists]
+            previewList ?? {
+                title: "My Todo List",
+                todos: [],
+            },
+        [previewList]
     );
-    const widgetProps = useWidgetProps<{ todoLists?: TodoList[] }>();
-    const toolOutputLists = Array.isArray(widgetProps?.todoLists)
-        ? (widgetProps.todoLists as TodoList[])
-        : null;
+    const widgetProps = useWidgetProps<{ todoList?: TodoList }>();
+    const toolOutputList =
+        widgetProps && isValidList(widgetProps.todoList)
+            ? (widgetProps.todoList as TodoList)
+            : null;
     const callTool = useCallTool();
-    const lastToolSyncRef = useRef<TodoList[] | null>(null);
+    const lastToolSyncRef = useRef<TodoList | null>(null);
 
     const [widgetState, setWidgetState] = useWidgetState<{
-        todoLists: TodoList[];
-    }>(() => ({ todoLists: fallbackLists }));
-    const widgetStateLists =
-        widgetState && Array.isArray(widgetState.todoLists)
-            ? widgetState.todoLists
+        todoList: TodoList;
+    }>(() => ({ todoList: fallbackList }));
+    const widgetStateList =
+        widgetState && isValidList(widgetState.todoList)
+            ? widgetState.todoList
             : null;
 
-    const resolvedLists = isNonEmptyListArray(widgetStateLists)
-        ? widgetStateLists
-        : isNonEmptyListArray(toolOutputLists)
-        ? toolOutputLists
-        : fallbackLists;
+    const resolvedList = widgetStateList ?? toolOutputList ?? fallbackList;
 
     const syncWithTool = async (
         toolName: string,
@@ -130,11 +109,11 @@ function Todo() {
     ) => {
         try {
             const response = await callTool(toolName, payload);
-            const serverLists = readStructuredLists(
+            const serverList = readStructuredList(
                 response?.structuredContent ?? null
             );
-            if (isNonEmptyListArray(serverLists)) {
-                setWidgetState({ todoLists: serverLists });
+            if (isValidList(serverList)) {
+                setWidgetState({ todoList: serverList });
             }
         } catch (error) {
             console.error("Failed to sync with todo tool", error);
@@ -142,84 +121,73 @@ function Todo() {
     };
 
     useEffect(() => {
-        if (!isNonEmptyListArray(toolOutputLists)) {
+        if (!isValidList(toolOutputList)) {
             lastToolSyncRef.current = null;
             return;
         }
 
         if (
             lastToolSyncRef.current &&
-            areListsEqual(lastToolSyncRef.current, toolOutputLists)
+            areListsEqual(lastToolSyncRef.current, toolOutputList)
         ) {
             return;
         }
 
-        lastToolSyncRef.current = toolOutputLists.map((list) => ({
-            ...list,
-            todos: list.todos.map((todo) => ({ ...todo })),
-        }));
-        setWidgetState({ todoLists: toolOutputLists });
-    }, [setWidgetState, toolOutputLists]);
+        lastToolSyncRef.current = cloneList(toolOutputList);
+        setWidgetState({ todoList: toolOutputList });
+    }, [setWidgetState, toolOutputList]);
 
-    const toggleItem = (listId: string, itemId: string) => {
-        const next = resolvedLists.map((l) => {
-            if (l.id !== listId) return l;
-            return {
-                ...l,
-                todos: l.todos.map((t: TodoEntry) =>
-                    t.id === itemId ? { ...t, isComplete: !t.isComplete } : t
-                ),
-            };
-        });
-        setWidgetState({ todoLists: next });
-        void syncWithTool(TOOLS.TOGGLE, { listId, todoId: itemId });
+    const toggleItem = (itemId: string) => {
+        const next: TodoList = {
+            ...resolvedList,
+            todos: resolvedList.todos.map((todo: TodoEntry) =>
+                todo.id === itemId
+                    ? { ...todo, isComplete: !todo.isComplete }
+                    : todo
+            ),
+        };
+        setWidgetState({ todoList: next });
+        void syncWithTool(TOOLS.TOGGLE, { todoId: itemId });
     };
 
-    const addItem = (listId: string, title: string) => {
+    const addItem = (title: string) => {
         const normalizedTitle =
             title && title.trim().length > 0 ? title : "New item";
-        const next = resolvedLists.map((l) => {
-            if (l.id !== listId) return l;
-            const id = `todo-${Math.random().toString(36).slice(2, 8)}`;
-            return {
-                ...l,
-                todos: [
-                    {
-                        id,
-                        title: normalizedTitle,
-                        isComplete: false,
-                    },
-                    ...l.todos,
-                ],
-            };
-        });
-        setWidgetState({ todoLists: next });
-        void syncWithTool(TOOLS.ADD, { listId, title: normalizedTitle });
+        const id = `todo-${Math.random().toString(36).slice(2, 8)}`;
+        const next: TodoList = {
+            ...resolvedList,
+            todos: [
+                {
+                    id,
+                    title: normalizedTitle,
+                    isComplete: false,
+                },
+                ...resolvedList.todos,
+            ],
+        };
+        setWidgetState({ todoList: next });
+        void syncWithTool(TOOLS.ADD, { title: normalizedTitle });
     };
 
-    const deleteItem = (listId: string, todoId: string) => {
-        const next = resolvedLists.map((l) => {
-            if (l.id !== listId) return l;
-            return {
-                ...l,
-                todos: l.todos.filter((t: TodoEntry) => t.id !== todoId),
-            };
-        });
-        setWidgetState({ todoLists: next });
-        void syncWithTool(TOOLS.DELETE, { listId, todoId });
+    const deleteItem = (todoId: string) => {
+        const next: TodoList = {
+            ...resolvedList,
+            todos: resolvedList.todos.filter(
+                (todo: TodoEntry) => todo.id !== todoId
+            ),
+        };
+        setWidgetState({ todoList: next });
+        void syncWithTool(TOOLS.DELETE, { todoId });
     };
 
     return (
         <div className="w-full h-full p-4">
-            {resolvedLists.map((list: any) => (
-                <TodoItem
-                    key={list.id}
-                    list={list}
-                    addItem={addItem}
-                    toggleItem={toggleItem}
-                    deleteItem={deleteItem}
-                />
-            ))}
+            <TodoItem
+                list={resolvedList}
+                addItem={addItem}
+                toggleItem={toggleItem}
+                deleteItem={deleteItem}
+            />
         </div>
     );
 }
