@@ -11,22 +11,23 @@ import "./src/styles/main.css";
 type EntryIndex = { name: string; path: string };
 
 function buildIndex(): EntryIndex[] {
-    const out: EntryIndex[] = [];
+    const entries = new Map<string, string>();
     for (const p of Object.keys(modules)) {
         const stripped = p.replace("./src/widgets/", "");
         const parts = stripped.split("/");
-        let name: string;
         if (parts.length === 1) {
-            name = parts[0].replace(/\.(t|j)sx$/, "");
-        } else {
-            name = parts[0];
+            const name = parts[0].replace(/\.(t|j)sx$/i, "");
+            entries.set(name, p);
+            continue;
         }
-        if (!out.some((e) => e.name === name)) {
-            out.push({ name, path: p });
+        if (parts.length === 2 && /index\.(t|j)sx$/i.test(parts[1])) {
+            const name = parts[0];
+            entries.set(name, p);
         }
     }
-    out.sort((a, b) => a.name.localeCompare(b.name));
-    return out;
+    return Array.from(entries.entries())
+        .map(([name, path]) => ({ name, path }))
+        .sort((a, b) => a.name.localeCompare(b.name));
 }
 
 function renderMenu(entries: EntryIndex[], current: string) {

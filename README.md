@@ -15,7 +15,7 @@ Build, preview, and ship a ChatGPT App that renders a responsive React widget an
 | Piece                  | Tech                               | Purpose                                                                                                    |
 | ---------------------- | ---------------------------------- | ---------------------------------------------------------------------------------------------------------- |
 | `src/widgets/todo.tsx` | React + hooks                      | Interactive todo widget that can optimistically update local state while syncing with the agent            |
-| `server.ts`            | Node + `@modelcontextprotocol/sdk` | Minimal MCP server exposing `todo-list`, `add-todo`, `toggle-todo`, `delete-todo`, and the widget resource |
+| `server.ts`            | Node + `@modelcontextprotocol/sdk` | Minimal MCP server exposing `todo list`, `add_todo`, `toggle_todo`, `delete_todo`, and the widget resource |
 | `build.ts`             | Vite + esbuild                     | Discovers widget entries, bundles them, and emits inline HTML files ready for `ui://widget/...`            |
 | `dev.ts`               | Vite loader                        | Lets you hot-reload any widget via `http://localhost:5173?entry=<name>`                                    |
 
@@ -97,9 +97,9 @@ npm install
     | Name | Description | Arguments |
     | --- | --- | --- |
     | `todo-list` | Return current todo lists | none |
-    | `add-todo` | Insert a new todo | `{ listId?, title }` |
-    | `toggle-todo` | Flip completion state | `{ listId, todoId }` |
-    | `delete-todo` | Remove a todo | `{ listId, todoId }` |
+    | `add_todo` | Insert a new todo | `{ listId?, title }` |
+    | `toggle_todo` | Flip completion state | `{ listId, todoId }` |
+    | `delete_todo` | Remove a todo | `{ listId, todoId }` |
 -   All tool responses include:
     -   `structuredContent.todoLists` (mirrors the widget data contract)
     -   `_meta.openai/*` descriptors so ChatGPT knows to render the widget

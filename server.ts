@@ -23,9 +23,9 @@ function readHtml(): string {
 
 const TOOLS = {
     LIST: "todo-list",
-    ADD: "add-todo",
-    TOGGLE: "toggle-todo",
-    DELETE: "delete-todo",
+    ADD: "add_todo",
+    TOGGLE: "toggle_todo",
+    DELETE: "delete_todo",
 };
 
 const widget = {

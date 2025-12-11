@@ -9,7 +9,8 @@ import tailwind from "@tailwindcss/vite";
 const __dirname = path.dirname(url.fileURLToPath(import.meta.url));
 const projectRoot = __dirname;
 const distDir = path.join(projectRoot, "dist");
-const widgetDir = path.join(projectRoot, "src", "widget");
+const widgetsDir = path.join(projectRoot, "src", "widgets");
+const INLINE_ASSETS = process.env.CHATGPT_SINGLE === "1";
 
 async function ensureDir(dir: string): Promise<void> {
     try {
@@ -17,10 +18,23 @@ async function ensureDir(dir: string): Promise<void> {
     } catch {}
 }
 
+type BundledAsset = { fileName: string; source: string | Uint8Array };
+
+function assetSourceToString(source?: string | Uint8Array): string {
+    if (source === undefined) return "";
+    return typeof source === "string"
+        ? source
+        : Buffer.from(source).toString("utf8");
+}
+
 async function bundleWithVite(
     entryFile: string,
     rootId: string
-): Promise<{ js: string; css: string }> {
+): Promise<{
+    js: string;
+    css: string;
+    assets: BundledAsset[];
+}> {
     // Create an isolated temporary work directory outside dist/
     const tempRoot = path.join(projectRoot, ".tmp");
     await ensureDir(tempRoot);
@@ -43,6 +57,7 @@ async function bundleWithVite(
 
     const config: InlineConfig = {
         root: projectRoot,
+        base: "./",
         plugins: [react(), tailwind()],
         define: { __WIDGET_ROOT_ID__: JSON.stringify(rootId) },
         build: {
@@ -51,15 +66,21 @@ async function bundleWithVite(
             minify: true,
             target: "es2019",
             rollupOptions: { input: entryPath },
+            assetsInlineLimit: INLINE_ASSETS
+                ? Number.MAX_SAFE_INTEGER
+                : undefined,
         },
     };
     const out = await viteBuild(config);
     const outputs = Array.isArray((out as any).output)
         ? (out as any).output
         : (out as any)[0].output;
-    const cssAsset = outputs.find(
-        (f: any) => f.type === "asset" && f.fileName.endsWith(".css")
+    const assetOutputs = outputs.filter((f: any) => f.type === "asset");
+    const cssAssets = assetOutputs.filter(
+        (f: any) =>
+            typeof f.fileName === "string" && f.fileName.endsWith(".css")
     );
+    const otherAssets = assetOutputs.filter((f: any) => !cssAssets.includes(f));
     const jsChunk = outputs.find((f: any) => f.type === "chunk" && f.isEntry);
     // Clean up the temporary work directory
     try {
@@ -67,12 +88,22 @@ async function bundleWithVite(
     } catch {}
 
     return {
-        css: cssAsset?.source?.toString?.() ?? "",
+        css: cssAssets
+            .map((asset: any) => assetSourceToString(asset.source))
+            .join("\n"),
         js: jsChunk?.code ?? "",
+        assets: otherAssets.map((asset: any) => ({
+            fileName: asset.fileName,
+            source:
+                typeof asset.source === "string" ||
+                asset.source instanceof Uint8Array
+                    ? asset.source
+                    : "",
+        })),
     };
 }
 
-function htmlTemplate(name: string, css: string, inlinedJs: string): string {
+function htmlTemplate(name: string, css: string, inlineJs: string): string {
     return `<!doctype html>
 <html lang="en">
 <head>
@@ -85,19 +116,29 @@ ${css}
 </head>
 <body>
   <div id="${name}-root"></div>
-  <!-- Local preview data (ignored by ChatGPT Apps which populates window.openai.toolOutput) -->
+  <!-- Local preview hint data for flying pig stats -->
   <script>
-    window.todoData = window.todoData || {
-      todoLists: [{
-        id: "list-local",
-        title: "My List",
-        isCurrentlyOpen: true,
-        todos: []
-      }]
+    window.flyingPigData = window.flyingPigData || {
+      stats: {
+        totalGamesStarted: 3,
+        totalScoreSubmissions: 1,
+        lastScore: null,
+        highScores: [{
+          id: "local-ace",
+          playerName: "Ace Pilot",
+          score: 42,
+          recordedAt: new Date().toISOString()
+        }]
+      },
+      tips: [
+        "Hold space, click, or tap to keep altitude.",
+        "Stars unlock a super-speed burst—collect five.",
+        "Carrots shave some weight when things get dicey."
+      ]
     };
   </script>
-  <script>
-${inlinedJs}
+  <script type="module">
+${inlineJs}
   </script>
 </body>
 </html>`;
@@ -107,11 +148,13 @@ async function discoverEntries(): Promise<
     Array<{ name: string; file: string }>
 > {
     const entries: Array<{ name: string; file: string }> = [];
-    if (!fsSync.existsSync(widgetDir)) return entries;
-    const dirents = await fs.readdir(widgetDir, { withFileTypes: true } as any);
+    if (!fsSync.existsSync(widgetsDir)) return entries;
+    const dirents = (await fs.readdir(widgetsDir, {
+        withFileTypes: true,
+    } as any)) as unknown as fsSync.Dirent[];
     for (const d of dirents) {
         if ((d as any).isDirectory()) {
-            const dir = path.join(widgetDir, d.name);
+            const dir = path.join(widgetsDir, d.name);
             const idxJsx = path.join(dir, "index.jsx");
             const idxTsx = path.join(dir, "index.tsx");
             if (fsSync.existsSync(idxJsx)) {
@@ -125,7 +168,7 @@ async function discoverEntries(): Promise<
                 const base = path.basename(d.name, ext);
                 entries.push({
                     name: base,
-                    file: path.join(widgetDir, d.name),
+                    file: path.join(widgetsDir, d.name),
                 });
             }
         }
@@ -137,26 +180,21 @@ async function main(): Promise<void> {
     await ensureDir(distDir);
     const entries = await discoverEntries();
     if (entries.length === 0) {
-        console.warn("No widget entries found in", widgetDir);
+        console.warn("No widget entries found in", widgetsDir);
         return;
     }
     for (const { name, file } of entries) {
         const rootId = `${name}-root`;
-        const { css, js } = await bundleWithVite(file, rootId);
+        const { css, js, assets } = await bundleWithVite(file, rootId);
         const html = htmlTemplate(name, css, js);
         const outPath = path.join(distDir, `${name}.html`);
         await fs.writeFile(outPath, html, "utf8");
-        console.log("Built:", path.relative(projectRoot, outPath));
-    }
-    // Back-compat: if the only entry is 'index', also write 'todo.html'
-    if (entries.length === 1 && entries[0].name === "index") {
-        const aliasSrc = path.join(distDir, "index.html");
-        const aliasDst = path.join(distDir, "todo.html");
-        try {
-            const html = await fs.readFile(aliasSrc, "utf8");
-            await fs.writeFile(aliasDst, html, "utf8");
-            console.log("Alias:", path.relative(projectRoot, aliasDst));
-        } catch {}
+        for (const asset of assets) {
+            const flattenedName = path.basename(asset.fileName);
+            const assetPath = path.join(distDir, flattenedName);
+            await ensureDir(path.dirname(assetPath));
+            await fs.writeFile(assetPath, asset.source);
+        }
     }
     // Remove the shared temporary directory after build
     try {

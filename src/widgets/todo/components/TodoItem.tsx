@@ -1,4 +1,6 @@
 import React, { useState } from "react";
+import recycleBin from "../../../assets/recycle-bin.png";
+import TextInput from "../../../components/TextInput";
 
 interface TodoItemProps {
     list: {
@@ -50,13 +52,15 @@ const TodoItem: React.FC<TodoItemProps> = ({
                 </div>
             </div>
             <div className="flex items-center gap-2 pb-2">
-                <input
-                    type="text"
+                <TextInput
                     value={newTitle}
-                    onChange={(e) => setNewTitle(e.target.value)}
-                    onKeyDown={handleKeyDown}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                        setNewTitle(e.target.value)
+                    }
+                    onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) =>
+                        handleKeyDown(e)
+                    }
                     placeholder="New item title…"
-                    className="flex-1 border border-black/15 rounded-md px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-black/20"
                 />
                 <button
                     className="bg-black text-white rounded-md px-2.5 py-1.5 text-sm disabled:opacity-40"
@@ -73,7 +77,7 @@ const TodoItem: React.FC<TodoItemProps> = ({
                         className="flex items-center gap-2 py-2 border-t border-black/10 first:border-t-0"
                     >
                         <input
-                            className="w-3.5 h-3.5"
+                            className="w-3.5 h-3.5 cursor-pointer"
                             type="checkbox"
                             readOnly
                             checked={!!item.isComplete}
@@ -99,10 +103,14 @@ const TodoItem: React.FC<TodoItemProps> = ({
                         </span>
                         <button
                             type="button"
-                            className="text-xs text-red-500 hover:text-red-600"
+                            className="text-xs text-red-500 hover:text-red-600 cursor-pointer"
                             onClick={() => deleteItem(list.id, item.id)}
                         >
-                            Delete
+                            <img
+                                src={recycleBin}
+                                alt="Delete"
+                                className="w-4 h-4"
+                            />
                         </button>
                     </li>
                 ))}

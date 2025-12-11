@@ -1,20 +1,15 @@
 import { useEffect, useMemo, useRef } from "react";
 import { createRoot } from "react-dom/client";
-import TodoItem from "../components/TodoItem";
-import { useCallTool } from "../hooks/use-call-tool";
-import { useWidgetProps } from "../hooks/use-widget-props";
-import { useWidgetState } from "../hooks/use-widget-state";
-
-// const TOOL_LIST = "todo-list";
-// const TOOL_ADD = "add-todo";
-// const TOOL_TOGGLE = "toggle-todo";
-// const TOOL_DELETE = "delete-todo";
+import TodoItem from "./components/TodoItem";
+import { useCallTool } from "../../hooks/use-call-tool";
+import { useWidgetProps } from "../../hooks/use-widget-props";
+import { useWidgetState } from "../../hooks/use-widget-state";
 
 const TOOLS = {
-    LIST: "todo-list",
-    ADD: "add-todo",
-    TOGGLE: "toggle-todo",
-    DELETE: "delete-todo",
+    LIST: "list_todos",
+    ADD: "add_todo_item",
+    TOGGLE: "toggle_todo_item",
+    DELETE: "delete_todo_item",
 };
 type TodoEntry = {
     id: string;
@@ -96,6 +91,12 @@ function Todo() {
                       {
                           id: "list-local",
                           title: "My List",
+                          isCurrentlyOpen: true,
+                          todos: [],
+                      },
+                      {
+                          id: "list-local-2",
+                          title: "My List 2",
                           isCurrentlyOpen: true,
                           todos: [],
                       },
