@@ -22,7 +22,7 @@ function readHtml(): string {
 }
 
 const TOOLS = {
-    LIST: "todo_list",
+    LIST: "list_todos",
     ADD: "add_todo_item",
     TOGGLE: "toggle_todo_item",
     DELETE: "delete_todo_item",

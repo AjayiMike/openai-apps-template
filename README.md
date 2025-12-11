@@ -96,10 +96,10 @@ npm install
 -   Tools shipped by default:
     | Name | Description | Arguments |
     | --- | --- | --- |
-    | `todo-list` | Return the current todo list | none |
-    | `add_todo` | Insert a new todo | `{ title }` |
-    | `toggle_todo` | Flip completion state | `{ todoId }` |
-    | `delete_todo` | Remove a todo | `{ todoId }` |
+    | `list_todos` | Return the current todo list | none |
+    | `add_todo_item` | Insert a new todo | `{ title }` |
+    | `toggle_todo_item` | Flip completion state | `{ todoId }` |
+    | `delete_todo_item` | Remove a todo | `{ todoId }` |
 -   All tool responses include:
     -   `structuredContent.todoList` (mirrors the widget data contract)
     -   `_meta.openai/*` descriptors so ChatGPT knows to render the widget
@@ -127,9 +127,11 @@ npm install
 openai-apps-template/
 ├─ src/
 │  ├─ widgets/
-│  │  └─ todo.tsx         # React widget (self-mounting)
-│  ├─ components/
-│  │  └─ TodoItem.tsx     # Presentational list item
+│  │  └─ todo/
+│  │     ├─ index.tsx              # Widget entry point (self-mounting)
+│  │     └─ components/
+│  │        ├─ NewTodo.tsx         # Input row for creating todos
+│  │        └─ TodoItem.tsx        # Presentational list item
 │  ├─ hooks/              # window.openai + MCP helpers
 │  ├─ styles/main.css     # Tailwind layer shared by widgets
 │  └─ utils/              # UI utilities (media queries, etc.)
