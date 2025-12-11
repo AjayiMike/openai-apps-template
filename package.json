@@ -6,8 +6,9 @@
     "scripts": {
         "build": "tsx build.ts",
         "start": "tsx server.ts",
-        "start:all": "npm run build && tsx server.ts",
-        "dev": "vite"
+        "dev": "vite",
+        "build:chatgpt": "CHATGPT_SINGLE=1 tsx build.ts",
+        "start:all": "npm run build:chatgpt && tsx server.ts"
     },
     "dependencies": {
         "@modelcontextprotocol/sdk": "^0.5.0",

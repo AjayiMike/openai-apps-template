@@ -1,9 +1,12 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import TodoItem from "./components/TodoItem";
 import { useCallTool } from "../../hooks/use-call-tool";
 import { useWidgetProps } from "../../hooks/use-widget-props";
 import { useWidgetState } from "../../hooks/use-widget-state";
+import recycleBin from "../../assets/recycle-bin.png";
+import TextInput from "../../components/TextInput";
+import NewTodo from "./components/NewTodo";
 
 const TOOLS = {
     LIST: "list_todos",
@@ -11,7 +14,7 @@ const TOOLS = {
     TOGGLE: "toggle_todo_item",
     DELETE: "delete_todo_item",
 };
-type TodoEntry = {
+export type TodoEntry = {
     id: string;
     title: string;
     isComplete: boolean;
@@ -76,6 +79,7 @@ function readPreviewData(): TodoList | null {
 }
 
 function Todo() {
+    const [newTodoTitle, setNewTodoTitle] = useState("");
     const previewList = useMemo(() => readPreviewData(), []);
     const fallbackList = useMemo(
         () =>
@@ -137,6 +141,22 @@ function Todo() {
         setWidgetState({ todoList: toolOutputList });
     }, [setWidgetState, toolOutputList]);
 
+    const handleAdd = async () => {
+        const title = newTodoTitle.trim();
+        if (!title) return;
+        addItem(title);
+        setNewTodoTitle("");
+    };
+
+    const handleNewTodoKeyDown: React.KeyboardEventHandler<HTMLInputElement> = (
+        e
+    ) => {
+        if (e.key === "Enter") {
+            e.preventDefault();
+            handleAdd();
+        }
+    };
+
     const toggleItem = (itemId: string) => {
         const next: TodoList = {
             ...resolvedList,
@@ -182,12 +202,32 @@ function Todo() {
 
     return (
         <div className="w-full h-full p-4">
-            <TodoItem
-                list={resolvedList}
-                addItem={addItem}
-                toggleItem={toggleItem}
-                deleteItem={deleteItem}
-            />
+            <div className="bg-white border border-black/10 rounded-xl shadow-[0_6px_16px_rgba(0,0,0,0.06)] p-3 max-w-[480px] mx-auto">
+                <div className="flex items-center gap-2 py-2">
+                    <div className="font-semibold text-base flex-1">
+                        {resolvedList.title || "Untitled"}
+                    </div>
+                </div>
+                <NewTodo
+                    newTodoTitle={newTodoTitle}
+                    setNewTodoTitle={setNewTodoTitle}
+                    handleNewTodoKeyDown={handleNewTodoKeyDown}
+                    handleAdd={handleAdd}
+                />
+                <ul className="list-none p-0 m-0">
+                    {resolvedList.todos.map((item: TodoEntry) => (
+                        <TodoItem
+                            key={item.id}
+                            todoItem={item}
+                            toggleItem={toggleItem}
+                            deleteItem={deleteItem}
+                        />
+                    ))}
+                    {resolvedList.todos.length === 0 && (
+                        <li className="py-2 text-black/45">No items yet</li>
+                    )}
+                </ul>
+            </div>
         </div>
     );
 }
