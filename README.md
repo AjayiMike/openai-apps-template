@@ -78,6 +78,7 @@ npm install
     -   `useWidgetProps` pulls structured tool output (`toolOutput.todoList` in this case).
     -   `useWidgetState` keeps local widget state in sync with the ChatGPT host via `window.openai.setWidgetState`.
     -   `useCallTool`, `useRequestDisplayMode`, etc. wrap MCP APIs.
+-   The todo widget reads `theme`, `safeArea.insets`, `displayMode`, and `maxHeight` so it can match ChatGPT’s light/dark palette, respect safe areas, and resize itself for PiP, inline, or fullscreen layouts without extra work on your end.
 
 ### Building for ChatGPT
 

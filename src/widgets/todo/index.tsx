@@ -1,11 +1,18 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
+    type CSSProperties,
+} from "react";
 import { createRoot } from "react-dom/client";
 import TodoItem from "./components/TodoItem";
 import { useCallTool } from "../../hooks/use-call-tool";
 import { useWidgetProps } from "../../hooks/use-widget-props";
 import { useWidgetState } from "../../hooks/use-widget-state";
-import recycleBin from "../../assets/recycle-bin.png";
-import TextInput from "../../components/TextInput";
+import { useDisplayMode } from "../../hooks/use-display-mode";
+import { useMaxHeight } from "../../hooks/use-max-height";
+import { useOpenAiGlobal } from "../../hooks/use-openai-global";
 import NewTodo from "./components/NewTodo";
 
 const TOOLS = {
@@ -80,6 +87,17 @@ function readPreviewData(): TodoList | null {
 
 function Todo() {
     const [newTodoTitle, setNewTodoTitle] = useState("");
+    const displayMode = useDisplayMode();
+    const maxHeight = useMaxHeight();
+    const theme = useOpenAiGlobal("theme") ?? "light";
+    const safeArea = useOpenAiGlobal("safeArea");
+    const safeInsets = safeArea?.insets ?? {
+        top: 0,
+        bottom: 0,
+        left: 0,
+        right: 0,
+    };
+    const isDark = theme === "dark";
     const previewList = useMemo(() => readPreviewData(), []);
     const fallbackList = useMemo(
         () =>
@@ -200,11 +218,47 @@ function Todo() {
         void syncWithTool(TOOLS.DELETE, { todoId });
     };
 
+    const containerStyle: CSSProperties = {
+        paddingTop: 16 + safeInsets.top,
+        paddingBottom: 16 + safeInsets.bottom,
+        paddingLeft: 16 + safeInsets.left,
+        paddingRight: 16 + safeInsets.right,
+        boxSizing: "border-box",
+    };
+    if (maxHeight) {
+        containerStyle.maxHeight = maxHeight;
+        containerStyle.overflowY = "auto";
+    }
+
+    const cardWidthClass =
+        displayMode === "fullscreen"
+            ? "max-w-[640px]"
+            : displayMode === "pip"
+            ? "max-w-[360px]"
+            : "max-w-[480px]";
+    const cardPaddingClass =
+        displayMode === "fullscreen"
+            ? "p-5"
+            : displayMode === "pip"
+            ? "p-3"
+            : "p-4";
+    const headingSizeClass =
+        displayMode === "fullscreen" ? "text-lg" : "text-base";
+
     return (
-        <div className="w-full h-full p-4">
-            <div className="bg-white border border-black/10 rounded-xl shadow-[0_6px_16px_rgba(0,0,0,0.06)] p-3 max-w-[480px] mx-auto">
+        <div
+            className="w-full h-full transition-colors duration-200 bg-transparent"
+            style={containerStyle}
+        >
+            <div
+                className={`border rounded-xl shadow-[0_6px_16px_rgba(0,0,0,0.06)] mx-auto ${cardWidthClass} ${cardPaddingClass} transition-colors duration-200 ${
+                    isDark
+                        ? "bg-[#111214] border-white/10 text-white"
+                        : "bg-white border-black/10 text-black"
+                }`}
+            >
                 <div className="flex items-center gap-2 py-2">
-                    <div className="font-semibold text-base flex-1">
+                    <div className={`font-semibold flex-1 ${headingSizeClass}`}>
                         {resolvedList.title || "Untitled"}
                     </div>
                 </div>
@@ -213,6 +267,7 @@ function Todo() {
                     setNewTodoTitle={setNewTodoTitle}
                     handleNewTodoKeyDown={handleNewTodoKeyDown}
                     handleAdd={handleAdd}
+                    isDark={isDark}
                 />
                 <ul className="list-none p-0 m-0">
                     {resolvedList.todos.map((item: TodoEntry) => (
@@ -221,10 +276,17 @@ function Todo() {
                             todoItem={item}
                             toggleItem={toggleItem}
                             deleteItem={deleteItem}
+                            isDark={isDark}
                         />
                     ))}
                     {resolvedList.todos.length === 0 && (
-                        <li className="py-2 text-black/45">No items yet</li>
+                        <li
+                            className={`py-2 ${
+                                isDark ? "text-white/45" : "text-black/45"
+                            }`}
+                        >
+                            No items yet
+                        </li>
                     )}
                 </ul>
             </div>
